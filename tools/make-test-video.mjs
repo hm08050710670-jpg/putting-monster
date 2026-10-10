@@ -2,7 +2,8 @@
 // PC の Chromium を「この動画をカメラ映像として使う」設定で起動し、
 // カメラ取得 (getUserMedia) からの処理経路を確認するために使う。実機テストの代わりにはならない。
 //
-//   node tools/make-test-video.mjs out.y4m [v0=2.5] [fps=60] [seconds=4.5]
+//   node tools/make-test-video.mjs out.y4m [v0=2.5] [fps=60] [seconds=4.5] [preset=side] [width=1280] [height=720]
+//   縦向きの例: node tools/make-test-video.mjs out.y4m 2.5 60 4.5 behind 720 1280
 //
 // 出力と一緒に、基準点の座標など（校正に使う真値）を JSON で表示する。
 import fs from 'node:fs';
@@ -14,8 +15,9 @@ const fps = Number(process.argv[4] || 60);
 const seconds = Number(process.argv[5] || 4.5);
 if (!out) { console.error('usage: node tools/make-test-video.mjs out.y4m [v0] [fps] [seconds]'); process.exit(1); }
 
-const W = 1280, H = 720;
-const cam = presetCamera('side', W, H);
+const preset = process.argv[6] || 'side';
+const W = Number(process.argv[7] || 1280), H = Number(process.argv[8] || 720);
+const cam = presetCamera(preset, W, H);
 const scene = new SimScene(cam);
 const putt = makePutt({ v0, start: [0.15, -0.6], t0: 1.0 });
 const rng = makeRng(3);

@@ -10,7 +10,7 @@
 // 他のアプリのキャッシュを消さないよう、このアプリのキャッシュ名には必ず PREFIX を付け、
 // 掃除するときも PREFIX で始まるものだけを対象にする。
 const PREFIX = 'ggpm-';
-const VERSION = PREFIX + '0.1.1-phase1';
+const VERSION = PREFIX + '0.1.2-phase1';
 const FILES = [
   './',
   './index.html',

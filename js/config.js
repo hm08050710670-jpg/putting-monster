@@ -2,7 +2,7 @@
 // 数値を後から調整しやすいよう、しきい値・既定値はすべてここに集約する。
 // （ゲーム用の HP・ダメージ・ステージ設定は Phase 3 でこのファイルに追加する）
 
-export const APP_VERSION = '0.1.1-phase1';
+export const APP_VERSION = '0.1.2-phase1';
 
 export const CONFIG = {
   ball: {

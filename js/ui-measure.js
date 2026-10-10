@@ -21,6 +21,8 @@ let staticCands = [];
 let wakeLock = null;
 let lastMetaUpdate = 0;
 let active = false;
+let lastSpeedText = ''; // 直前の有効な計測値（操作ドックの状態表示に出す）
+let needsCalibration = false; // true の間、下のボタンは「キャリブレーションへ」として働く
 
 const STATE_TEXT = {
   idle: '「計測開始」を押してください',
@@ -105,6 +107,8 @@ export async function enter(a) {
   const navToken = (app._navToken = (app._navToken || 0) + 1);
   pipeline = null;
   staticCands = [];
+  lastSpeedText = '';
+  needsCalibration = false;
   el('measureNotice').hidden = true;
   el('armBtn').disabled = true;
   setArmedButtonOnly(false);
@@ -133,12 +137,14 @@ export async function enter(a) {
   if (!calData) {
     showNotice('キャリブレーションが必要です', '画像上の位置を実際の距離に換算するため、最初に基準点を登録してください。', 'キャリブレーションへ', () => app.go('calibrate'));
     setState('idle', 'キャリブレーションが未設定です');
+    setNeedsCalibration(true);
     src.onFrame = () => drawOverlay();
     return;
   }
   if (calData.imageW !== src.width || calData.imageH !== src.height) {
     showNotice('キャリブレーションのやり直しが必要です', `保存されている校正は ${calData.imageW}×${calData.imageH} の映像用ですが、現在の映像は ${src.width}×${src.height} です（解像度の変更、または iPhone の向きの変更）。`, 'キャリブレーションへ', () => app.go('calibrate'));
-    setState('idle', '校正と映像の大きさが一致しません');
+    setState('idle', '校正と映像の大きさが一致しません（やり直しが必要です）');
+    setNeedsCalibration(true);
     src.onFrame = () => drawOverlay();
     return;
   }
@@ -152,6 +158,7 @@ export async function enter(a) {
   } catch (err) {
     showNotice('校正データを使用できません', String(err.message || err), 'キャリブレーションへ', () => app.go('calibrate'));
     setState('idle', '校正データに問題があります');
+    setNeedsCalibration(true);
     return;
   }
   const { roi } = pipeline;
@@ -169,6 +176,20 @@ export async function enter(a) {
   el('armBtn').disabled = false;
   setState('idle');
   src.onFrame = onFrame;
+}
+
+/**
+ * 校正がまだ無い（または映像と合わない）とき、下の主ボタンを「キャリブレーションへ」に切り替える。
+ * 映像を大きく表示すると案内文が画面の下に隠れるため、常に見えるボタンから進めるようにする。
+ */
+function setNeedsCalibration(v) {
+  needsCalibration = v;
+  const btn = el('armBtn');
+  if (v) {
+    btn.textContent = 'キャリブレーションへ進む';
+    btn.dataset.armed = 'false';
+    btn.disabled = false;
+  }
 }
 
 function setArmedButtonOnly(v) {
@@ -234,7 +255,7 @@ function onFrame(f) {
 
 function handleOutput(out, f) {
   if (out.event === 'ready') {
-    setState('waiting');
+    setState('waiting', lastSpeedText ? `${STATE_TEXT.waiting}（前回 ${lastSpeedText}）` : undefined);
     speak('準備完了', { interrupt: false });
   } else if (out.event === 'sceneChanged') {
     setState('bg', '画面が大きく変化しました。背景を取り直しています…');
@@ -244,7 +265,7 @@ function handleOutput(out, f) {
   if (!out.event) {
     if (out.state === 'tracking') setState('tracking');
     else if (out.state === 'bg') { /* 表示は維持 */ }
-    else if (out.state === 'waiting') setState('waiting');
+    else if (out.state === 'waiting' && el('measureState').dataset.state !== 'waiting') setState('waiting');
   }
 }
 
@@ -267,7 +288,9 @@ function onResult(res, f) {
   shots = shots.slice(0, 20);
   renderResult(res, truth);
   renderShots();
-  setState('cooldown', res.valid ? undefined : '計測できませんでした。次の準備をしています…');
+  // 映像を大きく表示しているときは結果カードが画面の下に隠れるので、常に見える状態表示にも速度を出す
+  if (res.valid) lastSpeedText = `${fmt(res.speedEntry)} m/s`;
+  setState('cooldown', res.valid ? `${lastSpeedText} ― 次の準備をしています…` : '計測できませんでした。次の準備をしています…');
   if (res.valid) speak(`秒速${speedText(res.speedEntry)}メートル`);
   else speak('計測失敗');
 }
@@ -420,6 +443,7 @@ function drawOverlay() {
 
 // ---------- 操作 ----------
 document.getElementById('armBtn').addEventListener('click', () => {
+  if (needsCalibration) { app.go('calibrate'); return; }
   if (!pipeline) return;
   unlock(); // 音声の有効化（iPhone では最初のタップの中で行う必要がある）
   setArmed(!armed);

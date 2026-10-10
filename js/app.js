@@ -47,19 +47,48 @@ const app = {
     slot.appendChild(this.stage.el);
     this.stage.el.hidden = false;
     this.stage.still.hidden = true;
+    this.stage.loupe.hidden = true;
     this.stage.el.classList.remove('editing');
+    this.layoutStage();
   },
 
-  /** 映像の縦横比に合わせて表示部の形を決め、重ね描き用キャンバスの画素数を合わせる。 */
+  /**
+   * 映像表示部の大きさを決める。
+   * 方針: 映像の縦横比を保ったまま、画面の幅いっぱいまで大きくする。ただし
+   * 「上のバー」と「下の操作ドック」の間に全体が収まる高さまで（スクロールせずに映像全体が見えるように）。
+   *
+   * 大きさは px で直接指定する。CSS の aspect-ratio に任せると、iPhone の Safari で
+   * 映像の縦横比が変わったときに高さだけ古いまま残り、映像が潰れて表示されたため。
+   */
   layoutStage() {
     const src = this.source;
     const st = this.stage;
-    if (src && src.width) st.el.style.setProperty('--arn', String(src.width / src.height));
-    // 重ね描きの画素数を抑える（3倍密度で描いても見た目はほぼ変わらず、処理だけ重くなるため）
+    const screenEl = st.el.closest('.screen');
+    const slot = st.el.parentElement;
+    if (!screenEl || !slot || st.el.hidden) return;
+    const arn = src && src.width ? src.width / src.height : 16 / 9;
+
+    // いま表示されている操作ドック（縦向きでは画面下に固定されている）
+    const dock = [...screenEl.querySelectorAll('[data-dock]')].find((d) => d.getClientRects().length > 0);
+    const fixed = !!dock && getComputedStyle(dock).position === 'fixed';
+    const dockH = fixed ? dock.getBoundingClientRect().height : 0;
+    screenEl.style.setProperty('--dock-h', `${Math.round(dockH)}px`);
+
+    const bar = screenEl.querySelector('.bar');
+    const barH = bar ? bar.getBoundingClientRect().height : 48;
+    const META_H = 34; // 映像の下の 1 行（解像度や fps の表示）
+    const availW = Math.max(120, slot.clientWidth);
+    const maxH = Math.max(160, window.innerHeight - barH - dockH - META_H - 20);
+    const w = Math.round(Math.min(availW, maxH * arn));
+    const h = Math.round(w / arn);
+    st.el.style.width = `${w}px`;
+    st.el.style.height = `${h}px`;
+
+    // 重ね描きの画素数（3倍密度で描いても見た目はほぼ変わらず、処理だけ重くなるので 2 倍まで）
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = Math.max(1, Math.round(st.el.clientWidth * dpr));
-    const h = Math.max(1, Math.round(st.el.clientHeight * dpr));
-    if (st.overlay.width !== w || st.overlay.height !== h) { st.overlay.width = w; st.overlay.height = h; }
+    const cw = Math.max(1, Math.round(w * dpr));
+    const ch = Math.max(1, Math.round(h * dpr));
+    if (st.overlay.width !== cw || st.overlay.height !== ch) { st.overlay.width = cw; st.overlay.height = ch; }
   },
 
   /** 映像座標(px) -> 重ね描きキャンバスの座標 への倍率 */
@@ -187,11 +216,16 @@ document.addEventListener('click', (e) => {
   if (b) app.go(b.dataset.go);
 });
 
-new ResizeObserver(() => {
+// 画面の大きさ・向き、または操作ドックの高さが変わったら、映像表示部の大きさを決め直す
+function relayout() {
   app.layoutStage();
   const sc = screens[app.screen];
   if (sc && sc.onLayout) sc.onLayout(app);
-}).observe(app.stage.el);
+}
+window.addEventListener('resize', relayout);
+window.addEventListener('orientationchange', () => setTimeout(relayout, 250));
+const dockObserver = new ResizeObserver(relayout);
+$$('[data-dock]').forEach((d) => dockObserver.observe(d));
 
 // アプリが背面に回るとカメラは止められる。計測を止め、前面に戻ったら映像を取り直す。
 document.addEventListener('visibilitychange', () => {

@@ -119,6 +119,9 @@ function setMode(m) {
   el('calEdit').hidden = m !== 'edit';
   app.stage.still.hidden = m !== 'edit';
   app.stage.el.classList.toggle('editing', m === 'edit');
+  app.stage.loupe.hidden = m !== 'edit';
+  // 表示する操作ドックが変わる（高さが変わる）ので、映像の大きさを決め直す
+  app.layoutStage();
   if (m === 'live') el('calNotice').hidden = true;
   draw();
 }
@@ -176,7 +179,7 @@ export async function enter(a) {
 export function leave() {
   active = false;
   if (app && app.source) app.source.onFrame = null;
-  if (app) { app.stage.still.hidden = true; app.stage.el.classList.remove('editing'); }
+  if (app) { app.stage.still.hidden = true; app.stage.loupe.hidden = true; app.stage.el.classList.remove('editing'); }
 }
 
 export function onLayout() { if (active) draw(); }
@@ -270,6 +273,11 @@ function drawLoupe() {
   g.moveTo(0, size / 2); g.lineTo(size / 2 - 5, size / 2);
   g.moveTo(size / 2 + 5, size / 2); g.lineTo(size, size / 2);
   g.stroke();
+  // 選択中の点（＝指のある場所）から遠い隅に出す。拡大表示はタッチを素通しするので、
+  // 下に隠れた点もそのままつかめる。
+  const left = u < app.source.width / 2, top = v < app.source.height / 2;
+  lp.dataset.pos = (top ? 'b' : 't') + (left ? 'r' : 'l');
+  lp.hidden = false;
 }
 
 function select(i) {

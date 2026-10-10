@@ -138,11 +138,14 @@ button, input, select { font: inherit; color: inherit; }
 .actions .btn-primary { flex: 1 1 auto; }
 
 /* ---------- 映像 ---------- */
-.stage-slot { display: flex; justify-content: center; }
+/* 映像表示部の大きさは JS（app.layoutStage）が px で決める。
+   CSS の aspect-ratio とフレックスの組み合わせは、iPhone の Safari で高さが潰れることがあったため使わない。 */
+.stage-slot { display: block; }
 .stage {
   position: relative;
-  width: min(100%, calc(var(--stage-max-h, 46dvh) * var(--arn, 1.7778)));
-  aspect-ratio: var(--arn, 1.7778);
+  width: 100%;
+  height: 56vw;
+  margin: 0 auto;
   background: #000;
   border-radius: 8px;
   overflow: hidden;
@@ -153,6 +156,21 @@ button, input, select { font: inherit; color: inherit; }
 .stage.editing { touch-action: none; }
 .stage video, .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .stage video { object-fit: fill; }
+/* 選択中の基準点の拡大表示。映像の四隅のうち、選択中の点から遠い隅に出す */
+.stage .loupe {
+  inset: auto;
+  width: 124px;
+  height: 124px;
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  background: #000;
+  pointer-events: none;
+  z-index: 3;
+}
+.stage .loupe[data-pos="tl"] { top: 8px; left: 8px; }
+.stage .loupe[data-pos="tr"] { top: 8px; right: 8px; }
+.stage .loupe[data-pos="bl"] { bottom: 8px; left: 8px; }
+.stage .loupe[data-pos="br"] { bottom: 8px; right: 8px; }
 .stage-badge {
   position: absolute;
   left: 0; right: 0; bottom: 0;
@@ -164,9 +182,34 @@ button, input, select { font: inherit; color: inherit; }
   text-align: center;
   pointer-events: none;
 }
-.meta-line { margin-top: 6px; font-size: 12px; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.meta-line { margin-top: 6px; font-size: 12px; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .split { display: flex; flex-direction: column; gap: 12px; max-width: 640px; margin: 0 auto; }
+/* min-width:0 = 列の幅が中の映像の大きさに引きずられないようにする（映像の大きさは列の幅から決めるため） */
+.split-stage { flex: none; min-width: 0; }
+
+/* 操作ドック: 縦向きでは画面の下端に固定し、映像を大きく表示しても主要な操作が常に見えるようにする。
+   横向きでは固定せず、右側の操作欄の先頭に置く。 */
+.dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px calc(16px + var(--sar)) calc(10px + var(--sab)) calc(16px + var(--sal));
+  background: var(--bg); /* 下の文字が透けて見えないよう、不透明にする */
+  border-top: 1px solid var(--line);
+}
+.dock .actions { margin: 0; flex-wrap: nowrap; }
+/* 文言の長さで高さが変わると映像の大きさが動いてしまうので、常に 2 行ぶんの高さにする */
+.dock .state-banner { padding: 8px 12px; font-size: 15px; line-height: 1.4; min-height: calc(2 * 1.4em + 18px); display: flex; align-items: center; }
+.dock .nudge { margin: 0; }
+.adjust-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+/* ドックに隠れないよう、ドックのある画面は下に余白を取る（高さは JS が --dock-h に入れる） */
+.screen[data-has-dock="true"] { padding-bottom: calc(var(--dock-h, 120px) + 24px); }
 .split-panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 
 /* 横向き（iPhone を横にして三脚に付けた場合）: 映像を左、操作を右に並べる */
@@ -174,7 +217,10 @@ button, input, select { font: inherit; color: inherit; }
   .split { flex-direction: row; max-width: none; align-items: flex-start; }
   .split-stage { flex: 1 1 58%; position: sticky; top: calc(var(--bar-h) + var(--sat) + 8px); }
   .split-panel { flex: 1 1 42%; }
-  .stage { --stage-max-h: calc(100dvh - var(--bar-h) - var(--sat) - var(--sab) - 56px); }
+  .dock { position: static; padding: 0; background: none; border-top: 0; }
+  .dock .actions { flex-wrap: wrap; }
+  .adjust-head { flex-wrap: wrap; }
+  .screen[data-has-dock="true"] { padding-bottom: calc(24px + var(--sab)); }
   .bar { margin-bottom: 8px; }
 }
 
@@ -254,9 +300,6 @@ button, input, select { font: inherit; color: inherit; }
 .form input[type="checkbox"] { width: 26px; height: 26px; accent-color: var(--accent); }
 .form output { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 
-.adjust { display: flex; gap: 12px; align-items: flex-start; margin: 10px 0; }
-.loupe { flex: 0 0 132px; width: 132px; height: 132px; border: 2px solid var(--accent); border-radius: 8px; background: #000; }
-.adjust-side { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .sel-name { color: var(--accent); font-weight: 700; font-size: 15px; }
 .nudge { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .nudge .btn { padding: 8px 0; }

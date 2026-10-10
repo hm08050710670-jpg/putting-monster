@@ -24,6 +24,7 @@
   <canvas id="simCanvas" hidden></canvas>
   <canvas id="stillCanvas" hidden></canvas>
   <canvas id="overlay"></canvas>
+  <canvas id="loupe" class="loupe" width="132" height="132" hidden aria-label="選択中の点の拡大表示"></canvas>
   <div id="stageBadge" class="stage-badge" hidden>シミュレーション映像（実測ではありません）</div>
 </div>
 
@@ -49,7 +50,7 @@
 </section>
 
 <!-- ============ 測定テスト ============ -->
-<section class="screen" data-screen="measure" hidden>
+<section class="screen" data-screen="measure" data-has-dock="true" hidden>
   <header class="bar">
     <button class="back" data-go="title" aria-label="戻る">‹ 戻る</button>
     <h2>測定テスト</h2>
@@ -62,7 +63,13 @@
     </div>
     <div class="split-panel">
       <div id="measureNotice" class="notice" hidden></div>
-      <div id="measureState" class="state-banner" data-state="idle">準備中…</div>
+      <div class="dock" data-dock>
+        <div id="measureState" class="state-banner" data-state="idle">準備中…</div>
+        <div class="actions">
+          <button class="btn btn-primary" id="armBtn">計測開始</button>
+          <button class="btn btn-small" id="maskBtn" aria-pressed="false">検出表示</button>
+        </div>
+      </div>
 
       <div class="result-card" id="resultCard" data-valid="none">
         <div class="result-main">
@@ -72,11 +79,6 @@
         <p class="result-reason" id="resultReason" hidden></p>
         <dl class="result-grid" id="resultGrid"></dl>
         <p class="result-note">この値はマット上での実測速度です。9フィート換算の推定距離は Phase 2 で追加します。</p>
-      </div>
-
-      <div class="actions">
-        <button class="btn btn-primary" id="armBtn">計測開始</button>
-        <button class="btn btn-small" id="maskBtn" aria-pressed="false">検出表示</button>
       </div>
 
       <div class="shots">
@@ -89,7 +91,7 @@
 </section>
 
 <!-- ============ キャリブレーション ============ -->
-<section class="screen" data-screen="calibrate" hidden>
+<section class="screen" data-screen="calibrate" data-has-dock="true" hidden>
   <header class="bar">
     <button class="back" data-go="title" aria-label="戻る">‹ 戻る</button>
     <h2>キャリブレーション</h2>
@@ -104,28 +106,29 @@
       <div id="calNotice" class="notice" hidden></div>
 
       <div id="calLive">
-        <p class="lead">カメラを固定し、マットと目印がすべて映るように調整してから撮影してください。</p>
-        <div class="actions">
-          <button class="btn btn-primary" id="calFreezeBtn">静止画を撮って基準点を合わせる</button>
+        <div class="dock" data-dock>
+          <div class="actions">
+            <button class="btn btn-primary" id="calFreezeBtn">静止画を撮って基準点を合わせる</button>
+          </div>
         </div>
+        <p class="lead">カメラを固定し、マットと目印がすべて映るように調整してから撮影してください。</p>
         <p class="hint" id="calSavedInfo"></p>
       </div>
 
       <div id="calEdit" hidden>
-        <p class="lead">丸印をドラッグして、目印の中心に合わせます。</p>
-        <div class="adjust">
-          <canvas id="loupe" class="loupe" width="132" height="132" aria-label="選択中の点の拡大表示"></canvas>
-          <div class="adjust-side">
+        <div class="dock" data-dock>
+          <div class="adjust-head">
             <p class="sel-name" id="calSelName"></p>
-            <div class="nudge">
-              <button class="btn btn-small" data-nudge="-1,0" aria-label="左へ1px">◀</button>
-              <button class="btn btn-small" data-nudge="0,-1" aria-label="上へ1px">▲</button>
-              <button class="btn btn-small" data-nudge="0,1" aria-label="下へ1px">▼</button>
-              <button class="btn btn-small" data-nudge="1,0" aria-label="右へ1px">▶</button>
-            </div>
             <button class="btn btn-small" id="calNextPt">次の点へ</button>
           </div>
+          <div class="nudge">
+            <button class="btn btn-small" data-nudge="-1,0" aria-label="左へ1px">◀</button>
+            <button class="btn btn-small" data-nudge="0,-1" aria-label="上へ1px">▲</button>
+            <button class="btn btn-small" data-nudge="0,1" aria-label="下へ1px">▼</button>
+            <button class="btn btn-small" data-nudge="1,0" aria-label="右へ1px">▶</button>
+          </div>
         </div>
+        <p class="lead">丸印をドラッグして、目印の中心に合わせます。映像の隅に拡大表示が出ます。合わせ終わったら、下で寸法を入力して保存します。</p>
 
         <div class="form">
           <label>基準点の数
