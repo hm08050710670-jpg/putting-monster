@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GOLF GUTS PUTTING MONSTERS</title>
+<meta name="description" content="実際のパター練習と連動するモンスターバトル。iPhoneのカメラでボールの速度を測ります。">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GG Putting">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- 映像表示部（校正画面と測定画面で共用。JS が各画面へ移動させる） -->
+<div id="stage" class="stage" hidden>
+  <video id="video" playsinline muted autoplay></video>
+  <canvas id="simCanvas" hidden></canvas>
+  <canvas id="stillCanvas" hidden></canvas>
+  <canvas id="overlay"></canvas>
+  <div id="stageBadge" class="stage-badge" hidden>シミュレーション映像（実測ではありません）</div>
+</div>
+
+<!-- ============ タイトル ============ -->
+<section class="screen" data-screen="title">
+  <div class="title-wrap">
+    <p class="eyebrow">GOLF GUTS</p>
+    <h1 class="logo">PUTTING<br><span>MONSTERS</span></h1>
+    <p class="phase-note">Phase 1 ・ カメラ計測版</p>
+
+    <div id="titleStatus" class="status-list"></div>
+
+    <nav class="menu">
+      <button class="btn btn-primary" data-go="measure">測定テスト</button>
+      <button class="btn" data-go="calibrate">キャリブレーション</button>
+      <button class="btn" data-go="settings">カメラ設定</button>
+      <button class="btn" data-go="logs">計測ログ</button>
+      <button class="btn" data-go="howto">遊び方・設置方法</button>
+      <button class="btn btn-disabled" disabled aria-disabled="true">START（モンスターバトル）<small>Phase 3 で実装します</small></button>
+    </nav>
+    <p class="version" id="versionText"></p>
+  </div>
+</section>
+
+<!-- ============ 測定テスト ============ -->
+<section class="screen" data-screen="measure" hidden>
+  <header class="bar">
+    <button class="back" data-go="title" aria-label="戻る">‹ 戻る</button>
+    <h2>測定テスト</h2>
+    <button class="bar-btn" data-go="settings">設定</button>
+  </header>
+  <div class="split">
+    <div class="split-stage">
+      <div class="stage-slot" data-stage-slot></div>
+      <p class="meta-line" id="measureMeta">—</p>
+    </div>
+    <div class="split-panel">
+      <div id="measureNotice" class="notice" hidden></div>
+      <div id="measureState" class="state-banner" data-state="idle">準備中…</div>
+
+      <div class="result-card" id="resultCard" data-valid="none">
+        <div class="result-main">
+          <span class="result-label" id="resultLabel">入口速度（スタートライン通過時）</span>
+          <span class="result-value"><b id="resultSpeed" data-empty="true">---</b><i>m/s</i></span>
+        </div>
+        <p class="result-reason" id="resultReason" hidden></p>
+        <dl class="result-grid" id="resultGrid"></dl>
+        <p class="result-note">この値はマット上での実測速度です。9フィート換算の推定距離は Phase 2 で追加します。</p>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary" id="armBtn">計測開始</button>
+        <button class="btn btn-small" id="maskBtn" aria-pressed="false">検出表示</button>
+      </div>
+
+      <div class="shots">
+        <h3>この画面での計測 <span id="shotCount"></span></h3>
+        <ol id="shotList" class="shot-list"></ol>
+        <p class="hint">結果は自動で計測ログに保存されます。実際に転がった距離は「計測ログ」で後から入力できます。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ キャリブレーション ============ -->
+<section class="screen" data-screen="calibrate" hidden>
+  <header class="bar">
+    <button class="back" data-go="title" aria-label="戻る">‹ 戻る</button>
+    <h2>キャリブレーション</h2>
+    <button class="bar-btn" data-go="howto">手順</button>
+  </header>
+  <div class="split">
+    <div class="split-stage">
+      <div class="stage-slot" data-stage-slot></div>
+      <p class="meta-line" id="calMeta">—</p>
+    </div>
+    <div class="split-panel">
+      <div id="calNotice" class="notice" hidden></div>
+
+      <div id="calLive">
+        <p class="lead">カメラを固定し、マットと目印がすべて映るように調整してから撮影してください。</p>
+        <div class="actions">
+          <button class="btn btn-primary" id="calFreezeBtn">静止画を撮って基準点を合わせる</button>
+        </div>
+        <p class="hint" id="calSavedInfo"></p>
+      </div>
+
+      <div id="calEdit" hidden>
+        <p class="lead">丸印をドラッグして、目印の中心に合わせます。</p>
+        <div class="adjust">
+          <canvas id="loupe" class="loupe" width="132" height="132" aria-label="選択中の点の拡大表示"></canvas>
+          <div class="adjust-side">
+            <p class="sel-name" id="calSelName"></p>
+            <div class="nudge">
+              <button class="btn btn-small" data-nudge="-1,0" aria-label="左へ1px">◀</button>
+              <button class="btn btn-small" data-nudge="0,-1" aria-label="上へ1px">▲</button>
+              <button class="btn btn-small" data-nudge="0,1" aria-label="下へ1px">▼</button>
+              <button class="btn btn-small" data-nudge="1,0" aria-label="右へ1px">▶</button>
+            </div>
+            <button class="btn btn-small" id="calNextPt">次の点へ</button>
+          </div>
+        </div>
+
+        <div class="form">
+          <label>基準点の数
+            <select id="calNPoints">
+              <option value="6">6点（推奨・誤差が小さい）</option>
+              <option value="4">4点</option>
+            </select>
+          </label>
+          <label>左右の目印の間隔 (cm)
+            <input id="calWidth" type="number" inputmode="decimal" min="10" max="200" step="0.1">
+          </label>
+          <label>スタート〜ゴールの間隔 (cm)
+            <input id="calLength" type="number" inputmode="decimal" min="30" max="400" step="0.1">
+          </label>
+          <label>カメラの高さ (cm) <small>レンズからマット面まで</small>
+            <input id="calHeight" type="number" inputmode="decimal" min="20" max="400" step="1">
+          </label>
+        </div>
+
+        <dl class="result-grid" id="calCheck"></dl>
+
+        <div class="actions">
+          <button class="btn btn-primary" id="calSaveBtn">この内容で保存</button>
+          <button class="btn" id="calRetakeBtn">撮り直す</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ カメラ設定 ============ -->
+<section class="screen" data-screen="settings" hidden>
+  <header class="bar">
+    <button class="back" data-go="title" aria-label="戻る">‹ 戻る</button>
+    <h2>カメラ設定</h2>
+    <span></span>
+  </header>
+  <div class="page">
+    <div class="form">
+      <label>映像ソース
+        <select id="setSource">
+          <option value="camera">カメラ（実測）</option>
+          <option value="sim">シミュレーション映像（動作確認用）</option>
+        </select>
+      </label>
+      <label>使用するカメラ
+        <select id="setDevice"><option value="">自動（背面カメラ）</option></select>
+      </label>
+      <label>解像度とフレームレート
+        <select id="setPreset">
+          <option value="720p60">1280×720 / 60fps（推奨）</option>
+          <option value="720p30">1280×720 / 30fps</option>
+          <option value="1080p60">1920×1080 / 60fps</option>
+          <option value="1080p30">1920×1080 / 30fps</option>
+          <option value="480p60">640×480 / 60fps</option>
+        </select>
+      </label>
+      <label>フレーム時刻の取得方法
+        <select id="setTime">
+          <option value="auto">自動（推奨）</option>
+          <option value="captureTime">captureTime（撮影時刻）</option>
+          <option value="mediaTime">mediaTime</option>
+          <option value="presentationTime">presentationTime</option>
+          <option value="now">受信時刻</option>
+        </select>
+      </label>
+    </div>
+    <p class="hint">60fps は要求しても取得できるとは限りません。実際の値は下の「カメラ診断」で確認してください。解像度を変えた場合はキャリブレーションのやり直しが必要です。</p>
+
+    <h3 class="section">カメラ診断</h3>
+    <p class="hint">約3秒間フレームを受信し、実際のフレームレートと時刻情報の精度を測ります。</p>
+    <div class="actions">
+      <button class="btn btn-primary" id="diagBtn">カメラ診断を実行</button>
+    </div>
+    <div id="diagOut" class="diag" hidden></div>
+
+    <h3 class="section">ボール検出の調整</h3>
+    <div class="form">
+      <label>明るさのしきい値 <output id="setBrightOut"></output>
+        <input id="setBright" type="range" min="80" max="250" step="1">
+      </label>
+      <label>背景との差のしきい値 <output id="setDiffOut"></output>
+        <input id="setDiff" type="range" min="8" max="90" step="1">
+      </label>
+      <label>色味の許容（大きいほど色付きも白とみなす） <output id="setSatOut"></output>
+        <input id="setSat" type="range" min="20" max="160" step="1">
+      </label>
+    </div>
+    <p class="hint">測定テスト画面の「検出表示」をオンにすると、白と判定された画素が黄色で表示されます。ボールだけが黄色になるように調整します。</p>
+    <div class="actions">
+      <button class="btn btn-small" id="setDetectReset">検出の設定を初期値に戻す</button>
+    </div>
+
+    <h3 class="section">音声案内</h3>
+    <div class="form">
+      <label class="row">計測結果を読み上げる
+        <input id="setVoice" type="checkbox">
+      </label>
+    </div>
+    <div class="actions">
+      <button class="btn btn-small" id="voiceTestBtn">音声テスト</button>
+    </div>
+
+    <h3 class="section">データ</h3>
+    <div class="actions">
+      <button class="btn btn-small btn-danger" id="wipeBtn">保存データをすべて消去</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 計測ログ ============ -->
+<section class="screen" data-screen="logs" hidden>
+  <header class="bar">
+    <button class="back" data-go="title" aria-label="戻る">‹ 戻る</button>
+    <h2>計測ログ</h2>
+    <span></span>
+  </header>
+  <div class="page">
+    <p class="hint" id="logSummary"></p>
+    <div class="actions">
+      <button class="btn btn-small" id="logExportBtn">CSV を書き出す</button>
+      <button class="btn btn-small btn-danger" id="logClearBtn">すべて削除</button>
+    </div>
+    <ul id="logList" class="log-list"></ul>
+  </div>
+</section>
+
+<!-- ============ 遊び方・設置方法 ============ -->
+<section class="screen" data-screen="howto" hidden>
+  <header class="bar">
+    <button class="back" data-go="title" aria-label="戻る">‹ 戻る</button>
+    <h2>遊び方・設置方法</h2>
+    <span></span>
+  </header>
+  <div class="page prose">
+    <p class="callout">現在は Phase 1（カメラ計測）です。モンスターバトルは、計測精度の確認が終わってから追加します。</p>
+
+    <h3>1. 用意するもの</h3>
+    <ul>
+      <li>緑や濃い色のパターマット（白いボールとの明暗差が必要です）</li>
+      <li>白いゴルフボール</li>
+      <li>iPhone を固定する三脚やスタンド</li>
+      <li>目印 6 個（色付きのシールやマーカー。白以外）とメジャー</li>
+    </ul>
+
+    <h3>2. 目印を置く</h3>
+    <ol>
+      <li>ボールを置く位置から <b>30cm 以上先</b>を「スタートライン」にします。打った直後はボールが滑るため、少し離します。</li>
+      <li>スタートラインの左右、マットの両脇に目印を 1 個ずつ置きます。</li>
+      <li>そこから 150cm 先（ゴールライン）の左右にも 1 個ずつ置きます。</li>
+      <li>ちょうど中間（75cm）の左右にも 1 個ずつ置きます（6点校正）。</li>
+      <li>左右の間隔と、スタート〜ゴールの間隔をメジャーで測ります。</li>
+    </ol>
+    <p>6 個の目印が長方形になるように置くことが大切です。</p>
+
+    <h3>3. カメラを置く</h3>
+    <ul>
+      <li>マットの横 1.5〜2m、高さ 1m 以上から見下ろす位置が基本です。打つ人の反対側に置くと、体でボールが隠れません。</li>
+      <li>6 個の目印がすべて、画面の端から少し内側に映るようにします。</li>
+      <li>広角（0.5x）ではなく、通常の 1x カメラを使います。</li>
+      <li>部屋を明るくします。暗いとフレームレートが下がり、ボールがぶれます。</li>
+      <li>設置後は iPhone を動かさないでください。動いたら校正をやり直します。</li>
+    </ul>
+
+    <h3>4. キャリブレーション</h3>
+    <ol>
+      <li>「キャリブレーション」で静止画を撮ります。</li>
+      <li>丸印をドラッグして各目印の中心に合わせます。拡大表示と矢印ボタンで 1px 単位の調整ができます。</li>
+      <li>測った寸法とカメラの高さを入力して保存します。</li>
+    </ol>
+
+    <h3>5. 測定テスト</h3>
+    <ol>
+      <li>「計測開始」を押し、「準備完了」と聞こえたら打ちます。</li>
+      <li>ボールが測定範囲を通過すると、速度が表示・読み上げされます。</li>
+      <li>続けて何球でも打てます。結果は計測ログに保存されます。</li>
+    </ol>
+
+    <h3>うまく計測できないとき</h3>
+    <ul>
+      <li>測定テストの「検出表示」をオンにして、ボールだけが黄色く表示されるか確認します。</li>
+      <li>床やマットが白っぽい場合は検出できません。</li>
+      <li>白いパター、白い手袋、白い靴が測定範囲に入ると誤検出の原因になります。</li>
+      <li>「カメラ設定」の「カメラ診断」で、フレームレートが出ているか確認します。</li>
+    </ul>
+
+    <h3>現在できないこと</h3>
+    <ul>
+      <li>推定距離（スティンプ 9 フィート換算）の表示：Phase 2</li>
+      <li>モンスターバトル・ステージ：Phase 3</li>
+      <li>効果音・演出：Phase 4</li>
+    </ul>
+  </div>
+</section>
+
+<div id="toast" class="toast" hidden></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

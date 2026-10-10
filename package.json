@@ -1,0 +1,11 @@
+{
+  "name": "golf-guts-putting-monsters",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "実際のパター練習と連動するモンスターバトル（Phase 1: カメラ計測）",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "serve": "node tools/serve.mjs"
+  }
+}

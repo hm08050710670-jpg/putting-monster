@@ -1,0 +1,15 @@
+# GitHub に上げるたびに、シミュレーションテストを自動で実行する。
+# 結果はリポジトリの「Actions」タブで確認できる。
+name: test
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
