@@ -4,6 +4,8 @@
 
 import { CONFIG } from './config.js';
 
+// 重要: GitHub Pages では、同じアカウントの他のアプリ（メトロノーム等）と保存場所を共有する。
+// このアプリのデータには必ず PREFIX を付け、読み書き・削除は PREFIX 付きのものだけを対象にする。
 const PREFIX = 'ggpm.';
 const SCHEMA = 1;
 

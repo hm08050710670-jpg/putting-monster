@@ -77,7 +77,7 @@ el('voiceTestBtn').addEventListener('click', () => {
 });
 
 el('wipeBtn').addEventListener('click', () => {
-  if (!confirm('校正・設定・計測ログをすべて消去します。元に戻せません。よろしいですか？')) return;
+  if (!confirm('このアプリ（PUTTING MONSTERS）の校正・設定・計測ログを消去します。元に戻せません。\n他のアプリのデータは消えません。よろしいですか？')) return;
   clearAll();
   app.invalidateSource();
   app.settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));

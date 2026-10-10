@@ -5,7 +5,12 @@
 // GitHub に更新を上げたのに古い画面が出続ける、という事故を避けるため。
 // ファイルを追加・削除したときは、下の一覧と VERSION を更新する。
 
-const VERSION = 'ggpm-0.1.0-phase1';
+// 重要: GitHub Pages では、同じアカウントの他のアプリ（メトロノーム等）と
+// 「同じサイト」として扱われ、キャッシュの保管場所を共有する。
+// 他のアプリのキャッシュを消さないよう、このアプリのキャッシュ名には必ず PREFIX を付け、
+// 掃除するときも PREFIX で始まるものだけを対象にする。
+const PREFIX = 'ggpm-';
+const VERSION = PREFIX + '0.1.1-phase1';
 const FILES = [
   './',
   './index.html',
@@ -39,7 +44,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith(PREFIX) && k !== VERSION).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -56,6 +61,9 @@ self.addEventListener('fetch', (event) => {
         }
         return res;
       })
-      .catch(() => caches.match(req, { ignoreSearch: true }).then((hit) => hit || caches.match('./index.html')))
+      .catch(() =>
+        // 自分のキャッシュだけを探す（他のアプリのキャッシュは参照しない）
+        caches.open(VERSION).then((c) => c.match(req, { ignoreSearch: true }).then((hit) => hit || c.match('./index.html')))
+      )
   );
 });
